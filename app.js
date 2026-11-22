@@ -6,6 +6,11 @@
 const API_BASE = "http://localhost:8080";
 let isBackendOnline = false;
 
+// Admin Session State
+const ADMIN_USER = "admin123";
+const ADMIN_PASS = "Administrator@10";
+let isAdminLoggedIn = false;
+
 // Default initial state for client-side storage
 const DEFAULT_INVENTORY = {
   riceStock: 500,
@@ -85,10 +90,10 @@ function switchTab(tabId) {
     }
   });
 
-  if (tabId === "dashboard" || tabId === "inventory") {
+  if (tabId === "dashboard") {
     loadInventory();
   }
-  if (tabId === "report" || tabId === "dashboard") {
+  if (tabId === "admin" || tabId === "dashboard") {
     loadAuditReport();
   }
 }
@@ -121,7 +126,6 @@ async function loadInventory() {
     }
   }
 
-  // GitHub Pages / Client storage fallback
   const inv = getLocalInventory();
   updateInventoryUI(inv.riceStock, inv.wheatStock, inv.fertilizerPackets);
 }
@@ -142,6 +146,7 @@ async function handleRegister(e) {
 
   const citizen = {
     name: document.getElementById("reg-name").value.trim(),
+    isFarmer: parseInt(document.getElementById("reg-farmer").value, 10),
     id: document.getElementById("reg-id").value.trim(),
     familySize: parseInt(document.getElementById("reg-size").value, 10),
     monthlyIncome: parseFloat(document.getElementById("reg-income").value)
@@ -213,7 +218,7 @@ async function handleDistribute(e) {
     }
   }
 
-  // Client-side fallback logic (identic to C logic)
+  // Client-side fallback logic
   const citizens = getLocalCitizens();
   const citizen = citizens.find(c => c.id === id);
 
@@ -238,10 +243,12 @@ async function handleDistribute(e) {
     const inv = getLocalInventory();
     const requiredRice = citizen.familySize * 5;
     const requiredWheat = citizen.familySize * 3;
+    const requiredFertilizer = citizen.isFarmer ? 5 : 0;
 
-    if (inv.riceStock >= requiredRice && inv.wheatStock >= requiredWheat) {
+    if (inv.riceStock >= requiredRice && inv.wheatStock >= requiredWheat && inv.fertilizerPackets >= requiredFertilizer) {
       inv.riceStock -= requiredRice;
       inv.wheatStock -= requiredWheat;
+      inv.fertilizerPackets -= requiredFertilizer;
       citizen.isServed = 1;
 
       setLocalInventory(inv);
@@ -253,17 +260,20 @@ async function handleDistribute(e) {
         id: citizen.id,
         income: citizen.monthlyIncome,
         familySize: citizen.familySize,
+        isFarmer: citizen.isFarmer,
         disbursedRice: requiredRice,
         disbursedWheat: requiredWheat,
+        disbursedFertilizer: requiredFertilizer,
         remainingRice: inv.riceStock,
-        remainingWheat: inv.wheatStock
+        remainingWheat: inv.wheatStock,
+        remainingFertilizer: inv.fertilizerPackets
       });
       loadInventory();
       loadAuditReport();
     } else {
       renderDistributeResult({
         status: "error",
-        message: `Insufficient inventory to satisfy full family quota (Needed: ${requiredRice} kg Rice, ${requiredWheat} kg Wheat).`
+        message: `Insufficient inventory (Needed: ${requiredRice} kg Rice, ${requiredWheat} kg Wheat, ${requiredFertilizer} pkts Fertilizer).`
       });
     }
   } else {
@@ -284,11 +294,12 @@ function renderDistributeResult(data) {
     resultDiv.innerHTML = `
       <h4 style="color: #2e7d32; margin-bottom: 6px;">🎉 Quota Approved & Disbursed</h4>
       <p><strong>Citizen:</strong> ${data.name} (ID: ${data.id})</p>
+      <p><strong>Household Type:</strong> ${data.isFarmer ? "🌾 Farmer Household" : "Standard Household"}</p>
       <p><strong>Monthly Income:</strong> ₹${data.income} (Eligible &le; ₹15,000)</p>
       <p><strong>Family Members:</strong> ${data.familySize}</p>
       <hr style="margin: 10px 0; border: none; border-top: 1px solid #c8e6c9;">
-      <p style="font-weight: 600; color: #1e6f5c;">Disbursed: ${data.disbursedRice} kg Rice | ${data.disbursedWheat} kg Wheat</p>
-      <p style="font-size: 12px; color: #555;">Remaining Stock: ${data.remainingRice} kg Rice, ${data.remainingWheat} kg Wheat</p>
+      <p style="font-weight: 600; color: #1e6f5c;">Disbursed: ${data.disbursedRice} kg Rice | ${data.disbursedWheat} kg Wheat${data.disbursedFertilizer > 0 ? ` | <strong>${data.disbursedFertilizer} pkts Fertilizer</strong>` : ""}</p>
+      <p style="font-size: 12px; color: #555;">Remaining Stock: ${data.remainingRice} kg Rice, ${data.remainingWheat} kg Wheat, ${data.remainingFertilizer} pkts Fertilizer</p>
     `;
     showAlert(`Disbursed successfully to ${data.name}!`, "success");
   } else if (data.status === "denied") {
@@ -309,11 +320,59 @@ function renderDistributeResult(data) {
   }
 }
 
-// Update Inventory
+// Admin Authentication Handlers
+function handleAdminLogin(e) {
+  e.preventDefault();
+  const u = document.getElementById("admin-user").value.trim();
+  const p = document.getElementById("admin-pass").value;
+
+  if (u === ADMIN_USER && p === ADMIN_PASS) {
+    isAdminLoggedIn = true;
+    sessionStorage.setItem("svr_admin_logged", "true");
+    updateAdminUI();
+    showAlert("Admin authentication successful!", "success");
+  } else {
+    showAlert("Invalid admin credentials! Please check your username and password.", "error");
+  }
+}
+
+function handleAdminLogout() {
+  isAdminLoggedIn = false;
+  sessionStorage.removeItem("svr_admin_logged");
+  updateAdminUI();
+  showAlert("Logged out of admin panel.", "warning");
+}
+
+function updateAdminUI() {
+  const authContainer = document.getElementById("admin-auth-container");
+  const loggedInBar = document.getElementById("admin-logged-in-bar");
+  const stockCard = document.getElementById("admin-stock-card");
+
+  if (isAdminLoggedIn) {
+    if (authContainer) authContainer.classList.add("hidden");
+    if (loggedInBar) loggedInBar.classList.remove("hidden");
+    if (stockCard) stockCard.classList.remove("hidden");
+  } else {
+    if (authContainer) authContainer.classList.remove("hidden");
+    if (loggedInBar) loggedInBar.classList.add("hidden");
+    if (stockCard) stockCard.classList.add("hidden");
+    const loginForm = document.getElementById("form-admin-login");
+    if (loginForm) loginForm.reset();
+  }
+}
+
+// Update Inventory (Admin Only)
 async function handleUpdateInventory(e) {
   e.preventDefault();
 
+  if (!isAdminLoggedIn) {
+    showAlert("Admin authentication required to update stock!", "error");
+    return;
+  }
+
   const payload = {
+    username: ADMIN_USER,
+    password: ADMIN_PASS,
     rice: parseInt(document.getElementById("inv-rice").value, 10) || 0,
     wheat: parseInt(document.getElementById("inv-wheat").value, 10) || 0,
     fertilizer: parseInt(document.getElementById("inv-fert").value, 10) || 0
@@ -350,7 +409,7 @@ async function handleUpdateInventory(e) {
   loadInventory();
 }
 
-// Audit Report & Stats
+// Audit Report & Stats (Visible to everyone)
 async function loadAuditReport() {
   let citizens = [];
   let totalFamilies = 0;
@@ -378,16 +437,22 @@ async function loadAuditReport() {
 
   const pendingFamilies = totalFamilies - servedFamilies;
 
-  document.getElementById("rep-total").textContent = totalFamilies;
-  document.getElementById("rep-served").textContent = servedFamilies;
-  document.getElementById("rep-pending").textContent = pendingFamilies;
-  document.getElementById("dash-assisted").textContent = `${servedFamilies} / ${totalFamilies}`;
+  const elTotal = document.getElementById("rep-total");
+  const elServed = document.getElementById("rep-served");
+  const elPending = document.getElementById("rep-pending");
+  const elAssisted = document.getElementById("dash-assisted");
+
+  if (elTotal) elTotal.textContent = totalFamilies;
+  if (elServed) elServed.textContent = servedFamilies;
+  if (elPending) elPending.textContent = pendingFamilies;
+  if (elAssisted) elAssisted.textContent = `${servedFamilies} / ${totalFamilies}`;
 
   const tbody = document.getElementById("audit-tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   if (citizens.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888;">No citizen records found. Register households first.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #888;">No citizen records found. Register households first.</td></tr>`;
     return;
   }
 
@@ -397,15 +462,21 @@ async function loadAuditReport() {
       ? `<span class="badge badge-served">SERVED</span>`
       : `<span class="badge badge-pending">PENDING</span>`;
 
+    const farmerBadge = c.isFarmer
+      ? `<span class="badge badge-farmer">🌾 Farmer</span>`
+      : `<span class="badge badge-nonfarmer">Non-Farmer</span>`;
+
     const riceQuota = c.familySize * 5;
     const wheatQuota = c.familySize * 3;
+    const fertQuota = c.isFarmer ? " + 5 pkts Fert." : "";
 
     tr.innerHTML = `
       <td><strong>${c.name}</strong></td>
       <td><code>${c.id}</code></td>
+      <td>${farmerBadge}</td>
       <td>${c.familySize}</td>
       <td>₹${Number(c.monthlyIncome).toFixed(2)}</td>
-      <td>${riceQuota} kg / ${wheatQuota} kg</td>
+      <td>${riceQuota} kg Rice / ${wheatQuota} kg Wheat${fertQuota}</td>
       <td>${statusBadge}</td>
     `;
     tbody.appendChild(tr);
@@ -414,6 +485,11 @@ async function loadAuditReport() {
 
 // Initialize on Load
 document.addEventListener("DOMContentLoaded", async () => {
+  if (sessionStorage.getItem("svr_admin_logged") === "true") {
+    isAdminLoggedIn = true;
+  }
+  updateAdminUI();
+
   await checkBackendStatus();
   loadInventory();
   loadAuditReport();
