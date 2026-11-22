@@ -44,7 +44,7 @@ Output:
 ### Step 3: Open in Browser
 Open your browser and navigate to:
 ```
-http://localhost:8080
+https://pasupuletiaashritha-lang.github.io/Smart-Village-Relief-Distribution-System/
 ```
 
 ---
