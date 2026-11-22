@@ -16,7 +16,7 @@
         <p>C-Powered Community Food & Agricultural Welfare Management</p>
       </div>
       <div class="backend-badge">
-        <span class="pulse-dot"></span> C Backend Active
+        <span class="pulse-dot"></span> Checking Status...
       </div>
     </header>
 
@@ -25,14 +25,11 @@
       <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Live Dashboard</button>
       <button class="tab-btn" onclick="switchTab('register')">📝 Register Citizen</button>
       <button class="tab-btn" onclick="switchTab('distribute')">🤝 Check & Distribute</button>
-      <button class="tab-btn" onclick="switchTab('inventory')">📦 Update Stock</button>
-      <button class="tab-btn" onclick="switchTab('report')">📑 Audit Report</button>
+      <button class="tab-btn" onclick="switchTab('admin')">🔒 Admin Panel</button>
     </nav>
 
     <!-- Notification Alert Box -->
     <div id="alert-box" class="alert hidden"></div>
-
-    <!-- MAIN CONTENT SECTIONS -->
 
     <!-- 1. Live Dashboard -->
     <section id="tab-dashboard" class="tab-content active">
@@ -71,7 +68,8 @@
         <h3>Quick Eligibility & Distribution Rules</h3>
         <ul class="rule-list">
           <li><strong>Below Poverty Line (BPL) Threshold:</strong> Monthly income &le; 15,000 INR.</li>
-          <li><strong>Per Person Relief Quota:</strong> 5 kg Rice + 3 kg Wheat per family member.</li>
+          <li><strong>Standard Quota:</strong> 5 kg Rice + 3 kg Wheat per family member.</li>
+          <li><strong>Farmer Household Quota:</strong> Standard grain quota + <strong>5 packets of Fertilizer</strong>.</li>
           <li><strong>Distribution Frequency:</strong> 1 ration quota per family per cycle.</li>
         </ul>
       </div>
@@ -81,16 +79,30 @@
     <section id="tab-register" class="tab-content">
       <div class="card form-card">
         <h2>Register New Citizen / Family</h2>
-        <p class="subtitle">Enroll a household into the community relief database (binary record stored by C backend).</p>
+        <p class="subtitle">Enroll a household into the community relief database.</p>
         <form id="form-register" onsubmit="handleRegister(event)">
-          <div class="form-group">
-            <label for="reg-name">Head of Family Name</label>
-            <input type="text" id="reg-name" placeholder="e.g., Ramesh Kumar" required>
+          <!-- Row 1: Head of Family & Farmer Household Question in the same row -->
+          <div class="form-row">
+            <div class="form-group col-2">
+              <label for="reg-name">Head of Family Name</label>
+              <input type="text" id="reg-name" placeholder="e.g., Ramesh Kumar" required>
+            </div>
+            <div class="form-group col-1">
+              <label for="reg-farmer">Farmer Household?</label>
+              <select id="reg-farmer" class="form-select" required>
+                <option value="0">No</option>
+                <option value="1">Yes (+5 pkts Fertilizer)</option>
+              </select>
+            </div>
           </div>
+
+          <!-- Row 2: ID -->
           <div class="form-group">
             <label for="reg-id">Unique Ration Card / Aadhaar ID</label>
             <input type="text" id="reg-id" placeholder="e.g., RC-102938 or 12-digit Aadhaar" required>
           </div>
+
+          <!-- Row 3: Family Size and Income -->
           <div class="form-row">
             <div class="form-group col">
               <label for="reg-size">Family Size (Members)</label>
@@ -110,7 +122,7 @@
     <section id="tab-distribute" class="tab-content">
       <div class="card form-card">
         <h2>Check Eligibility & Distribute Relief</h2>
-        <p class="subtitle">Verifies income criteria (&le; 15,000 INR), family size quota, and deducts from live stock.</p>
+        <p class="subtitle">Verifies income criteria (&le; 15,000 INR), family size quota, farmer bonus (+5 fertilizers), and deducts from live stock.</p>
         <form id="form-distribute" onsubmit="handleDistribute(event)">
           <div class="search-box">
             <input type="text" id="dist-id" placeholder="Enter Ration Card / Aadhaar ID" required>
@@ -121,10 +133,38 @@
       </div>
     </section>
 
-    <!-- 4. Update Inventory -->
-    <section id="tab-inventory" class="tab-content">
-      <div class="card form-card">
-        <h2>Update Community Resource Inventory (Admin)</h2>
+    <!-- 4. Admin Panel (Stock Update + Audit Report) -->
+    <section id="tab-admin" class="tab-content">
+      <!-- Admin Authentication Banner / Form -->
+      <div id="admin-auth-container" class="card form-card">
+        <h2>🔒 Admin Access Required for Stock Updates</h2>
+        <p class="subtitle">Log in to unlock inventory management and stock updates.</p>
+        <form id="form-admin-login" onsubmit="handleAdminLogin(event)">
+          <div class="form-row">
+            <div class="form-group col">
+              <label for="admin-user">Username</label>
+              <input type="text" id="admin-user" placeholder="Enter username" required>
+            </div>
+            <div class="form-group col">
+              <label for="admin-pass">Password</label>
+              <input type="password" id="admin-pass" placeholder="Enter password" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Log In as Admin</button>
+        </form>
+      </div>
+
+      <!-- Logged-in Admin Info -->
+      <div id="admin-logged-in-bar" class="card admin-status-bar hidden">
+        <div class="admin-user-info">
+          <span class="admin-badge">🔑 Logged in as: <strong>admin123</strong></span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="handleAdminLogout()">Log Out</button>
+      </div>
+
+      <!-- Stock Update (Only active when logged in) -->
+      <div id="admin-stock-card" class="card form-card hidden">
+        <h2>📦 Update Community Resource Inventory</h2>
         <p class="subtitle">Add newly arrived grain shipments and agricultural supplies into storage.</p>
         <form id="form-inventory" onsubmit="handleUpdateInventory(event)">
           <div class="form-group">
@@ -142,15 +182,13 @@
           <button type="submit" class="btn btn-primary">Add to Inventory</button>
         </form>
       </div>
-    </section>
 
-    <!-- 5. Audit Report -->
-    <section id="tab-report" class="tab-content">
+      <!-- Audit Report (Always visible in Admin Page) -->
       <div class="card">
         <div class="report-header">
           <div>
-            <h2>Community Audit & Distribution Report</h2>
-            <p class="subtitle">Complete register of families and monthly fulfillment status.</p>
+            <h2>📑 Community Audit & Distribution Report</h2>
+            <p class="subtitle">Complete register of families, farmer classifications, and monthly fulfillment status.</p>
           </div>
           <button class="btn btn-secondary" onclick="loadAuditReport()">🔄 Refresh Data</button>
         </div>
@@ -167,15 +205,16 @@
               <tr>
                 <th>Family Head</th>
                 <th>ID Number</th>
+                <th>Farmer?</th>
                 <th>Family Size</th>
                 <th>Monthly Income</th>
-                <th>Quota (Rice / Wheat)</th>
+                <th>Quota Entitlement</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody id="audit-tbody">
               <tr>
-                <td colspan="6" style="text-align: center; color: #888;">No citizen records found. Register households first.</td>
+                <td colspan="7" style="text-align: center; color: #888;">No citizen records found.</td>
               </tr>
             </tbody>
           </table>
@@ -191,4 +230,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-
