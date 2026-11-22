@@ -1,4 +1,4 @@
-/ Smart Village Relief Management - Frontend JavaScript
+// Smart Village Relief Management - Frontend JavaScript
 // Supports both:
 // 1. Native C Backend (http://localhost:8080 when running web_bridge.exe locally)
 // 2. Client-side In-Memory / LocalStorage Mock Mode (for GitHub Pages / Cloud Hosting)
